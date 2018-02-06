@@ -40,6 +40,7 @@ typedef struct {
   cpu_printProcessorInfo_t *printInfo;
   cpu_printUpdFStats_t     *printUpdFStats;
   cpu_updateProcessor_t    *update;
+  cpu_updateProcessor_t    *updateFromFile;
   cpu_verifyUpdfInteg_t    *verifyUpdF;
 } cpu_handler_t;
 

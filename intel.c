@@ -55,7 +55,8 @@ __FBSDID("$FreeBSD$");
 
 #define FUNC_printIntelUpdateFileStats   1
 #define FUNC_IntelUpdate                 2
-#define FUNC_IntelUpdateFileVerify       3
+#define FUNC_IntelUpdateFromFile         4
+#define FUNC_IntelUpdateFileVerify       8
 
 void     intel_printSignatInfo(    uint32_t *sig_p);
 void     intel_printExtSignatInfo( void *sig_p);
@@ -409,6 +410,11 @@ int intel_updateProcessor( void *cpuinfo, int core, char *path)
   return intel_handleProcessor( cpuinfo, core, path, FUNC_IntelUpdate);
 }
 
+int intel_updateProcessorFromFile( void *cpuinfo, int core, char *path)
+{
+  return intel_handleProcessor( cpuinfo, core, path, FUNC_IntelUpdateFromFile);
+}
+
 int intel_verifyUpdfInteg( char *path, char *fnamp)
 {
   return intel_handleProcessor( NULL, 0, path, FUNC_IntelUpdateFileVerify);
@@ -433,7 +439,7 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
   int                    blobcount = 0;
   intel_flagmatch        match;
 
-  if (func == FUNC_IntelUpdate) {
+  if (func & (FUNC_IntelUpdate | FUNC_IntelUpdateFromFile)) {
     /* In this block, get processor stats and form a filename.
      * After this block, continue with reading and verifying it.
      * When the update file has been verified, continue at the 
@@ -449,13 +455,16 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
     if (r) {
       INFO( 0, "Failed to get processor info for core %d!\n", core);
     } else {
-      /* construct family-model-stepping filename for microcode binary */
-      sprintf( fnam, "%02x-%02x-%02x", cpuinfo->family, cpuinfo->model, cpuinfo->esig.sigU.signatBitF.SteppingID);
-      INFO( 11, "Update filename: %s!\n", fnam);
-      sprintf( updatefpath, "%s/%s", path, fnam);
-      sprintf( cpupath, "/dev/cpuctl%d", core);
-      strcpy( fpath, updatefpath);
-  } } else if (func == FUNC_printIntelUpdateFileStats || func == FUNC_IntelUpdateFileVerify) {
+      if (func & FUNC_IntelUpdate) {
+        /* construct family-model-stepping filename for microcode binary */
+        sprintf( fnam, "%02x-%02x-%02x", cpuinfo->family, cpuinfo->model, cpuinfo->esig.sigU.signatBitF.SteppingID);
+        INFO( 11, "Update filename: %s!\n", fnam);
+        sprintf( updatefpath, "%s/%s", path, fnam);
+        sprintf( cpupath, "/dev/cpuctl%d", core);
+        strcpy( fpath, updatefpath);
+      } else if (func & FUNC_IntelUpdateFromFile) {
+        strcpy( fpath, path);
+  } } } else if (func & (FUNC_printIntelUpdateFileStats | FUNC_IntelUpdateFileVerify)) {
     strcpy( fpath, path);
   }
   /* now the shared section: read update file name and verify its format is valid */
@@ -552,7 +561,7 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
   /* now check for matching header(s) if in update mode.
    * If more than one blob matches the cpu flags, use the latest one
    */
-  if (!r && blobcount >= 1 && func == FUNC_IntelUpdate) {
+  if (!r && blobcount >= 1 && func & (FUNC_IntelUpdate | FUNC_IntelUpdateFromFile)) {
     match.headerindex = -1;
     match.blobindex = -1;
     uint32_t cpu_flags_hit = ((intel_fw_header_t *) &hdrhdrs[ 0])->cpu_flags;
@@ -589,7 +598,7 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
       intel_printHeadersInfo( thdrhdr);
   } }
 
-  if (!r && func == FUNC_IntelUpdate) {
+  if (!r && func & (FUNC_IntelUpdate | FUNC_IntelUpdateFromFile)) {
     /* now do the update section which updates the particular core, 
      * if update file is valid and matches the core.
      * Some of the checks are redundant with above checks...
@@ -640,7 +649,7 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
       INFO( 0, "Umm... update file %s should match, but doesn't. Not updated.\n", fpath);
   } 
 
-  if (func == FUNC_IntelUpdateFileVerify) {
+  if (func & FUNC_IntelUpdateFileVerify) {
     /* implied if (outputmode & OUTPMODE_F) */
      if (!r) {
        INFO( 0, "Update file %s seems to be valid.\n", fpath);

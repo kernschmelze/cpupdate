@@ -52,7 +52,7 @@ __FBSDID("$FreeBSD$");
 int  verbosity = 10;
 int  writeit = 0;
 int  outputmode = 0;
-int  extractbuggedfiles = 0;    /* extract files containing multiple blobs - "bugged" because they violate Intel's own spec */
+int  extractbuggedfiles = 0;    /* extract files containing multiple blobs - calling them "bugged" because they violate Intel's own spec */
 char extractdir[ MAXPATHLEN];
 int  vendormode = -1;
 static int numCores = 0;
@@ -62,7 +62,7 @@ static int numCores = 0;
 #define VENDOR_INDEX_VIA   2
 
 static cpu_handler_t handlers[] = {
-  { "Intel", intel_probe, intel_getProcessorInfo, intel_printProcessorInfo, intel_printUpdateFileStats, intel_updateProcessor, intel_verifyUpdfInteg }
+  { "Intel", intel_probe, intel_getProcessorInfo, intel_printProcessorInfo, intel_printUpdateFileStats, intel_updateProcessor, intel_updateProcessorFromFile, intel_verifyUpdfInteg }
 };
 static cpu_handler_t *handler;
 static cpuinfobuf_t   cpuinfobuf;
@@ -77,13 +77,14 @@ void usage( void)
 
   if ((name = getprogname()) == NULL)
     name = "<programname>";
-  fprintf(stderr, "Usage: %s [-i] | [-h] | -f <microcodefile> | -u | -c <datadir> [-q] [-w] [-v[v]] [-I | -A | -V] [-x <dirname>]\n", name);
+  fprintf(stderr, "Usage: %s [-qwvviIAVh] [-<f|U> <microcodefile>] [-<u|c> <datadir>] [-x <dirname>]\n", name);
   fprintf(stderr, "  -i   show processor information\n");
   fprintf(stderr, "  -f   show version information of microcode file\n");
   fprintf(stderr, "  -u   update microcode using microcode files in <datadir>\n");
+  fprintf(stderr, "  -U   update microcode using file <microcodefile>\n");
   fprintf(stderr, "  -w   write it: without this option cpupdate only simulates updating\n");
   fprintf(stderr, "  -c   Check integrity of microcode files in <datadir>. Vendor mode must be set!\n");
-  fprintf(stderr, "  -IAV set vendor mode to Intel/AMD/VIA, respective for -c [atm only Intel implemented]\n");
+  fprintf(stderr, "  -IAV for -c option: set vendor mode to Intel/AMD/VIA [atm only Intel implemented]\n");
   fprintf(stderr, "  -x   extract microcode files from multi-blob intel-ucode files to <dirname>\n");
   fprintf(stderr, "  -q   quiet mode\n");
   fprintf(stderr, "  -v   verbose mode, -vv very verbose \n");
@@ -150,7 +151,7 @@ int main(int argc, char *argv[])
 
   if (argc == 1)
     usage();
-  while ((c = getopt( argc, argv, "IAVc:f:ihqu:vwx:")) != -1) {
+  while ((c = getopt( argc, argv, "IAVc:f:ihqu:U:vwx:")) != -1) {
     switch (c) {
       case 'q': verbosity -= 10;
                 break;
@@ -158,8 +159,8 @@ int main(int argc, char *argv[])
                 break;
       case 'w': ++writeit;
                 break;
-      case 'x': if (extractbuggedfiles) {
-                  INFO( 0, "ERROR: -x option allowed only once\n");
+      case 'x': if (extractbuggedfiles || ambigc) {
+                  INFO( 0, "ERROR: -x option allowed only once, and none of the [cfuIih] options allowed \n");
                   usage();
                 }
                 ++extractbuggedfiles;
@@ -167,11 +168,12 @@ int main(int argc, char *argv[])
                 break;
       case 'c': 
       case 'f': 
-      case 'u': data = optarg;
+      case 'u':
+      case 'U': data = optarg;
       case 'i': 
       case 'h': cmd = c;
-                if (ambigc) {
-                  INFO( 0, "ERROR: only one of the [cfuih] options allowed\n");
+                if (extractbuggedfiles || ambigc) {
+                  INFO( 0, "ERROR: only one of the [cfuIihx] options allowed\n");
                   usage();
                 }
                 ambigc = 1;
@@ -218,6 +220,7 @@ int main(int argc, char *argv[])
                       INFO( 0, "Failed to get info about core %d\n", i);
               } } } }
               break;
+    case 'U': 
     case 'u': outputmode = OUTPMODE_U;
               numCores = cpu_getCoreNum();
               if (numCores < 1) {
@@ -228,7 +231,11 @@ int main(int argc, char *argv[])
                 if (r >= 0) {
                   INFO( 11, "Found CPU(s) from %s\n", handler->vendorName);
                   for ( int i = 0; i < numCores; ++i) {
-                    r = handler->update( &cpuinfobuf, i, data);
+                    if (cmd == 'u') {
+                      r = handler->update( &cpuinfobuf, i, data);
+                    } else {
+                      r = handler->updateFromFile( &cpuinfobuf, i, data);
+                    }
                     if (r) {
                       INFO( 0, "Failed to update core %d\n", i);
                       r = -1;

@@ -29,12 +29,13 @@
 #ifndef INTEL_H
 #define	INTEL_H
 
-int  intel_probe(                void);
-int  intel_getProcessorInfo(     void *cpuinfo_p, int core);
-void intel_printProcessorInfo(   void *cpuinfo_p, int core);
-int  intel_updateProcessor(      void *cpuinfo, int core, char *path);
-void intel_printUpdateFileStats( char *path);
-int  intel_verifyUpdfInteg(      char *path, char *fnamp);
+int  intel_probe(                   void);
+int  intel_getProcessorInfo(        void *cpuinfo_p, int core);
+void intel_printProcessorInfo(      void *cpuinfo_p, int core);
+int  intel_updateProcessor(         void *cpuinfo, int core, char *path);
+int  intel_updateProcessorFromFile( void *cpuinfo, int core, char *path);
+void intel_printUpdateFileStats(    char *path);
+int  intel_verifyUpdfInteg(         char *path, char *fnamp);
 
 
 cpu_probeProcessor_t        intel_probe;
@@ -42,6 +43,7 @@ cpu_getProcessorInfo_t      intel_getProcessorInfo;
 cpu_printProcessorInfo_t    intel_printProcessorInfo;
 cpu_printUpdFStats_t        intel_printUpdateFileStats;
 cpu_updateProcessor_t       intel_updateProcessor;
+cpu_updateProcessor_t       intel_updateProcessorFromFile;
 cpu_verifyUpdfInteg_t       intel_verifyUpdfInteg;
 
 /* Please see the programmer manual Vol. 3A, page 9-28 
