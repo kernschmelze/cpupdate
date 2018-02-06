@@ -425,7 +425,7 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
 {
   int                    updfd, r = 0;
   struct stat            st;
-  uint8_t               *fw_image;
+  uint8_t               *fw_image = MAP_FAILED; /* init as NULL resp MAP_FAILED */
   /* the following vars used only for updating */
   intel_ProcessorInfo   *cpuinfo;
   cpuctl_update_args_t   args;

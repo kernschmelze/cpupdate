@@ -84,7 +84,7 @@ void usage( void)
   fprintf(stderr, "  -U   update microcode using file <microcodefile>\n");
   fprintf(stderr, "  -w   write it: without this option cpupdate only simulates updating\n");
   fprintf(stderr, "  -c   Check integrity of microcode files in <datadir>. Vendor mode must be set!\n");
-  fprintf(stderr, "  -IAV for -c option: set vendor mode to Intel/AMD/VIA [atm only Intel implemented]\n");
+  fprintf(stderr, "  -IAV for -c and f options: set vendor mode to Intel/AMD/VIA [atm only Intel implemented]\n");
   fprintf(stderr, "  -x   extract microcode files from multi-blob intel-ucode files to <dirname>\n");
   fprintf(stderr, "  -q   quiet mode\n");
   fprintf(stderr, "  -v   verbose mode, -vv very verbose \n");
