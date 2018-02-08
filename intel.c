@@ -455,12 +455,12 @@ int intel_handleProcessor( void *cpuinfo_p, int core, char *path, int func)
     if (r) {
       INFO( 0, "Failed to get processor info for core %d!\n", core);
     } else {
+      sprintf( cpupath, "/dev/cpuctl%d", core);
       if (func & FUNC_IntelUpdate) {
         /* construct family-model-stepping filename for microcode binary */
         sprintf( fnam, "%02x-%02x-%02x", cpuinfo->family, cpuinfo->model, cpuinfo->esig.sigU.signatBitF.SteppingID);
         INFO( 11, "Update filename: %s!\n", fnam);
         sprintf( updatefpath, "%s/%s", path, fnam);
-        sprintf( cpupath, "/dev/cpuctl%d", core);
         strcpy( fpath, updatefpath);
       } else if (func & FUNC_IntelUpdateFromFile) {
         strcpy( fpath, path);

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# PROVIDE: cpupdate
+# REQUIRE: 
+# BEFORE:  
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name=cpupdate
+rcvar=cpupdate_enable
+
+command="/usr/local/sbin/${name}"
+
+start_cmd="${name}_start"
+stop_cmd=":"
+
+load_rc_config $name
+: ${cpupdate_enable:=no}
+: ${cpupdate_msg="cpupdate run."}
+
+cpupdate_start()
+{
+  echo "$cpupdate_msg"
+  /usr/local/sbin/cpupdate -vv -w -u /usr/local/share/microcodes/intel-ucode
+}
+
+run_rc_command "$1"
