@@ -152,12 +152,12 @@ do_eval_cpu_features(const char *dev)
 
   fd = open(dev, O_RDWR);
   if (fd < 0) {
-    WARN(0, "error opening %s for writing", dev);
+    INFO(0, "error opening %s for writing", dev);
     return (1);
   }
   error = ioctl(fd, CPUCTL_EVAL_CPU_FEATURES, NULL);
   if (error < 0)
-    WARN(0, "ioctl(%s, CPUCTL_EVAL_CPU_FEATURES)", dev);
+    INFO(0, "ioctl(%s, CPUCTL_EVAL_CPU_FEATURES)", dev);
   close(fd);
   return (error);
 }
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
                 if (r >= 0) {
                   INFO( 11, "All %d CPUs have been updated. Now registering new CPU features\n", numCores);
                   for ( int i = 0; i < numCores; ++i) {
-                    char cpupath[100];
+                    char cpupath[100];   // XXX  brrr bad constant
                     sprintf( cpupath, "/dev/cpuctl%d", i);
                     r = do_eval_cpu_features( cpupath);
                     r = (r < 0) ? 1 : 0;   // error if negative
