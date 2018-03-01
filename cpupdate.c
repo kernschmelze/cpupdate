@@ -142,6 +142,27 @@ static int isdir( const char *path)
   return (r < 0) ? r : (st.st_mode & S_IFDIR);
 }
 
+#ifdef CPUCTL_EVAL_CPU_FEATURES
+static int
+do_eval_cpu_features(const char *dev)
+{
+  int fd, error;
+
+  assert(dev != NULL);
+
+  fd = open(dev, O_RDWR);
+  if (fd < 0) {
+    WARN(0, "error opening %s for writing", dev);
+    return (1);
+  }
+  error = ioctl(fd, CPUCTL_EVAL_CPU_FEATURES, NULL);
+  if (error < 0)
+    WARN(0, "ioctl(%s, CPUCTL_EVAL_CPU_FEATURES)", dev);
+  close(fd);
+  return (error);
+}
+#endif
+
 int main(int argc, char *argv[])
 {
   int   c, cmd, r = 0;
@@ -240,7 +261,23 @@ int main(int argc, char *argv[])
                       INFO( 0, "Failed to update core %d\n", i);
                       r = -1;
                       break;
-              } } } }
+                } } } 
+#ifdef CPUCTL_EVAL_CPU_FEATURES
+                if (r >= 0) {
+                  INFO( 11, "All %d CPUs have been updated. Now registering new CPU features\n", numCores);
+                  for ( int i = 0; i < numCores; ++i) {
+                    char cpupath[100];
+                    sprintf( cpupath, "/dev/cpuctl%d", i);
+                    r = do_eval_cpu_features( cpupath);
+                    r = (r < 0) ? 1 : 0;   // error if negative
+                    if (r) {
+                      INFO( 0, "Failed to register core %d features\n", i);
+                      r = -1;
+                      break;
+                } } } 
+#endif
+                
+              }
               break;
     case 'f': outputmode = OUTPMODE_F;
               if (vendormode < 0) {
