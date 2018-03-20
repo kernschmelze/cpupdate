@@ -23,136 +23,146 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD: stable/11/usr.sbin/cpucontrol/intel.h 181430 2008-08-08 16:26:53Z stas $
  */
 
 #ifndef INTEL_H
 #define	INTEL_H
 
-int  intel_probe(                   void);
-int  intel_getProcessorInfo(        void *cpuinfo_p, int core);
-void intel_printProcessorInfo(      void *cpuinfo_p, int core);
-int  intel_updateProcessor(         void *cpuinfo, int core, char *path);
-int  intel_updateProcessorFromFile( void *cpuinfo, int core, char *path);
-void intel_printUpdateFileStats(    char *path);
-int  intel_verifyUpdfInteg(         char *path, char *fnamp);
-
-
-cpu_probeProcessor_t        intel_probe;
-cpu_getProcessorInfo_t      intel_getProcessorInfo;
-cpu_printProcessorInfo_t    intel_printProcessorInfo;
-cpu_printUpdFStats_t        intel_printUpdateFileStats;
-cpu_updateProcessor_t       intel_updateProcessor;
-cpu_updateProcessor_t       intel_updateProcessorFromFile;
-cpu_verifyUpdfInteg_t       intel_verifyUpdfInteg;
-
 /* Please see the programmer manual Vol. 3A, page 9-28 
- * for information on the update file format.
- * Document available at URL: XXX
+ * for information on cpu identification and the microcode update file format.
+ * Document available at URL: https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3a-part-1-manual.pdf
+ * Note: The multi-blobbed format isn't described there, but it is simple.
+ * Just all blob files for a particular family-model-stepping concatenated.
  */
-typedef struct {
-	uint32_t	header_version;		/* Version of the header. */
-	int32_t		revision;		/* Unique version number. */
-	uint32_t	date;			/* Date of creation in BCD. */
-	uint32_t	cpu_signature;		/* Extended family, extended
-						   model, type, family, model
-						   and stepping. */
-	uint32_t	checksum;		/* Sum of all DWORDS should
-						   be 0. */
-	uint32_t	loader_revision;	/* Version of the loader
-						   required to load update. */
-	uint32_t	cpu_flags;		/* Platform IDs encoded in
-						   the lower 8 bits. */
-  uint32_t  data_size;
+
+/* The header, all values only regard the blob of the particular header. */
+struct intel_uc_header_t {
+				/* Version of the header. */
+	uint32_t	header_version;		
+				/* Unique version number. */
+	int32_t		revision;
+				/* Date of creation in BCD. */
+	uint32_t	date;
+				/* signature: family, model, type and stepping. */
+	uint32_t	cpu_signature;
+				/* Checksum: Sum of all DWORDS should be 0. */
+	uint32_t	checksum;
+				/* Version of the loaderrequired to load update. */
+	uint32_t	loader_revision;
+				/* Platform IDs encoded in the lower 8 bits. */
+	uint32_t	cpu_flags;
+				/* payload data size: If 0, datasize = 2000 bytes, else the data_size amount */
+    uint32_t	data_size;
+				/* total blob size, including header */
 	uint32_t	total_size;
 	uint8_t		reserved[12];
-} intel_fw_header_t;
+};
 
-typedef struct {
+/* The signature data structure returned by the CPUID function */
+struct intel_cpu_signature_t {
 	uint32_t	cpu_signature;
 	uint32_t	cpu_flags;
 	uint32_t	checksum;
-} intel_cpu_signature_t;
+};
 
-/* bitfield  structures are compiler specific, similar to little/big endian */
-/* TODO implement compiler switch */
+/* order of bitfield structure members is compiler specific */
+/* TODO add compiler switch */
 #if 0
-typedef struct {
-  unsigned int reserved1 : 4;
-  unsigned int ExtendedFamilyID : 8;
-  unsigned int ExtendedModelID : 4;
-  unsigned int reserved2 : 2;
-  unsigned int ProcessorType : 2;
-  unsigned int FamilyID : 4;
-  unsigned int Model : 4;
-  unsigned int SteppingID : 4;
-} cpuinfoBitF;
+struct cpuinfoBitF {
+	unsigned int reserved1 			: 4;
+	unsigned int ExtendedFamilyID 	: 8;
+	unsigned int ExtendedModelID 	: 4;
+	unsigned int reserved2 			: 2;
+	unsigned int ProcessorType 		: 2;
+	unsigned int FamilyID 			: 4;
+	unsigned int Model 				: 4;
+	unsigned int SteppingID 		: 4;
+};
 #else
-typedef struct {
-  unsigned int SteppingID : 4;
-  unsigned int Model : 4;
-  unsigned int FamilyID : 4;
-  unsigned int ProcessorType : 2;
-  unsigned int reserved2 : 2;
-  unsigned int ExtendedModelID : 4;
-  unsigned int ExtendedFamilyID : 8;
-  unsigned int reserved1 : 4;
-} cpuinfoBitF;
+// clang
+struct cpuinfoBitF {
+	unsigned int SteppingID 		: 4;
+	unsigned int Model 				: 4;
+	unsigned int FamilyID 			: 4;
+	unsigned int ProcessorType 		: 2;
+	unsigned int reserved2 			: 2;
+	unsigned int ExtendedModelID	: 4;
+	unsigned int ExtendedFamilyID	: 8;
+	unsigned int reserved1 			: 4;
+};
 #endif
 
-typedef union {
-  uint32_t     signatInt;
-  cpuinfoBitF  signatBitF;
-} intel_SignatUnion;
+union intel_SignatUnion {
+	uint32_t     		sigInt;
+	struct cpuinfoBitF	sigBitF;
+};
 
-typedef struct {
-  uint32_t    sig,
-              cpu_flags,
-              checksum;
-} intel_ExtSignat_t;
+// extended signature, is only subset of full 1st signature
+struct intel_ExtSignat_t {
+	uint32_t	sig,
+				cpu_flags,
+				checksum;
+};
 
-typedef union {
-  intel_ExtSignat_t    sigS;
-  intel_SignatUnion    sigU;
-} intel_ExtSignatUnion;
+union intel_ExtSignatUnion {
+	struct intel_ExtSignat_t	sigS;
+	union  intel_SignatUnion	sigU;
+};
+
+struct intel_ProcessorInfo {
+	union intel_SignatUnion
+				sig;
+	int32_t 	ucoderev;
+	uint32_t	flags;
+};
 
 
-typedef struct {
-  intel_ExtSignatUnion esig;
-  uint32_t             family, 
-                       model,
-                       numCoresPerProc,
-                       numProcessors;
-  int32_t              ucoderev;
-  uint32_t             flags;
-} intel_ProcessorInfo;
-
-typedef struct {
+struct intel_ext_header_t {
 	uint32_t	sig_count;
 	uint32_t	checksum;
 	uint8_t		reserved[12];
-} intel_ext_header_t;
-
-typedef struct {
-  uint8_t  *image;
-  uint32_t  data_size;
-  uint32_t  payload_size;
-  uint32_t  ext_size;
-  uint32_t  total_size;
-  uint8_t   has_ext_table;
-  intel_ext_header_t    *ext_header;  
-  intel_ExtSignatUnion  *ext_table;   /* actually pointer to array of ext headers */ 
-  int       ext_table_size;
-} intel_hdrhdr_t;
-  
-typedef struct {
-  int  headerindex;   /* apparently not used yet by Intel */
-  int  blobindex;
-  uint32_t bestrev;
-} intel_flagmatch;
+};
 
 
-#define	INTEL_HEADER_VERSION	0x00000001
-#define	INTEL_LOADER_REVISION	0x00000001
+struct intel_hdrhdr_t {
+	uint8_t	   *image;
+	uint32_t	data_size;
+	uint32_t	payload_size;
+	uint32_t	ext_size;
+	uint32_t	total_size;
+	uint8_t 	has_ext_table;
+	struct intel_ext_header_t
+			   *ext_header;
+	union intel_ExtSignatUnion
+			   *ext_table;		/* actually pointer to array of ext headers */ 
+	int			ext_table_size;
+};
+
+
+struct intel_flagmatch {
+	int			headerindex;
+	int			blobindex;
+	uint32_t 	bestrev;
+};
+
+
+struct intel_ucinfo {
+	// image of whole file, containing all blobs
+	void   *image;
+	// whole image size in bytes
+	int 	imagesize;
+	int		blobcount;
+	struct intel_hdrhdr_t
+			hdrhdrs[ MAXHEADERS];
+};
+
+
+extern struct vendor_funcs intel_funcs;
+
+// define the indents for formatting the microcode file info stuff
+#define INDENT_0 ("  ")
+#define INDENT_1 ("    ")
+#define INDENT_2 ("      ")
+
 
 #endif /* !INTEL_H */

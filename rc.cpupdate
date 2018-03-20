@@ -22,7 +22,7 @@ load_rc_config $name
 cpupdate_start()
 {
   echo "$cpupdate_msg"
-  /usr/local/sbin/cpupdate -vv -w -u /usr/local/share/microcodes/intel-ucode
+  /usr/local/sbin/cpupdate -vv -w -u
 }
 
 run_rc_command "$1"
