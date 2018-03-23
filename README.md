@@ -14,7 +14,7 @@ Then do "make install".<br>
 You get a notice printed where the microcode files that have been downloaded have been placed.<br>
 Now you have to place them into where the program expects them.<br>
 
-<b>To install the Intel microcode pack:</b>
+<b>To install the Intel microcode pack:</b><br>
 As root, do "mkdir -p /usr/local/share/cpupdate/CPUMicrocodes/primary/Intel".<br>
 Then do "mv /usr/ports/sysutils/cpupdate/work/intel-ucode/* /usr/local/share/cpupdate/CPUMicrocodes/primary/Intel"<br>
 This moves the Intel microcode files to the directory cpupdate expects them in.<br>
