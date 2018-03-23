@@ -149,8 +149,10 @@ cpu_setHandler( void)
 	int          r = -1;
 	
 	for (i = 0; i < NHANDLERS; i++)
-		if ((r = handlers[ i]->probe( &cpupbuf)) == 0)
+		if (handlers[ i]->probe( &cpupbuf) == 0) {
+			r = i;
 			break;
+		}
 	if (r >= 0 && i < NHANDLERS) {
 		handler = handlers[ i];
 		r = i;
