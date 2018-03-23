@@ -5,8 +5,10 @@ The <b>manual page</b> is not yet converted to nroff, read it here please:<br>
 http://bsd.denkverbot.info/2018/03/cpupdate-manpage-suggestion.html<br>
 
 Note the program and the installer are still WIP.<br>
-Please do not install via pkg, only with ports.<br>
+Please do not install via pkg.<br>
+Please use ports or manually clone it with git.<br>
 
+<b>To install cpupdate:</b><br>
 Do "cd /usr/ports/sysutils/cpupdate".<br>
 Then run "make config".<br>
 In the dialog shown, activate the options for downloading microcode files.<br>
