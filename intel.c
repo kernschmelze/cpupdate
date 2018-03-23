@@ -95,8 +95,8 @@ static void intel_printHeadersInfo( struct intel_hdrhdr_t *hdrhdr);
 static uint32_t
 intel_getFamily( uint32_t *sig)
 {
-  union intel_SignatUnion *sigp = (union intel_SignatUnion *) sig;
-  return sigp->sigBitF.ExtendedFamilyID + sigp->sigBitF.FamilyID;
+	union intel_SignatUnion *sigp = (union intel_SignatUnion *) sig;
+	return sigp->sigBitF.ExtendedFamilyID + sigp->sigBitF.FamilyID;
 }
 
 
@@ -109,15 +109,16 @@ intel_getFamily( uint32_t *sig)
 static uint32_t
 intel_getModel( uint32_t *sig)
 {
-  union intel_SignatUnion *sigp = (union intel_SignatUnion *) sig;
-  return (sigp->sigBitF.ExtendedModelID << 4) + sigp->sigBitF.Model;
+	union intel_SignatUnion *sigp = (union intel_SignatUnion *) sig;
+	return (sigp->sigBitF.ExtendedModelID << 4) + sigp->sigBitF.Model;
 }
 
 
 static int
 intel_getCoreInfo( struct intel_ProcessorInfo *coreinfo, int core)
 {
-	int					r, cpufd = -1;
+	int					r = 0;
+	int					cpufd = -1;
 	char 				cpudev[ MAXPATHLEN];
 	cpuctl_msr_args_t   msrargs;
 	cpuctl_cpuid_args_t idargs = {
@@ -125,14 +126,17 @@ intel_getCoreInfo( struct intel_ProcessorInfo *coreinfo, int core)
 	};
 
 	sprintf( cpudev, "/dev/cpuctl%d", core);
-	if ((r = ((cpufd = open( cpudev, O_RDWR)) < 0))) {
+	cpufd = open( cpudev, O_RDWR);
+	if (cpufd < 0) {
 		INFO( 0, "could not open %s for writing\n", cpudev);
+		r = 1;
 	}
 	if (!r) {
 		/* Read Platform ID, see Intel Manual Vol. 3A, section 9.11.04, pg 9-32+33 */
 		msrargs.msr = MSR_IA32_PLATFORM_ID;
-		if ((r = ioctl( cpufd, CPUCTL_RDMSR, &msrargs)) < 0) {
+		if (ioctl( cpufd, CPUCTL_RDMSR, &msrargs) < 0) {
 			INFO( 0, "Reading platform ID for %s failed\n", cpudev);
+			r = 1;
 		} else {
 			r = 0;
 			/* MSR_IA32_PLATFORM_ID contains flag in BCD in bits 52-50. */
@@ -145,27 +149,30 @@ intel_getCoreInfo( struct intel_ProcessorInfo *coreinfo, int core)
 		 */
 		msrargs.msr = MSR_BIOS_SIGN;
 		msrargs.data = 0;
-		if ((r = ioctl( cpufd, CPUCTL_WRMSR, &msrargs)) < 0) {
+		if (ioctl( cpufd, CPUCTL_WRMSR, &msrargs) < 0) {
 			INFO( 0, "Initialization for CPUID for %s failed\n", cpudev);
-		} else
-			r = 0;
+			r = 1;
+		}
 	}
-	if (!r && ((r = ioctl( cpufd, CPUCTL_CPUID, &idargs)) < 0) ) {
+	if (!r && ioctl( cpufd, CPUCTL_CPUID, &idargs) < 0) {
 		INFO( 0, "%s CPUID failed\n", cpudev);
+		r = 1;
+
 	}
 	if (!r) {
 		coreinfo->sig.sigInt = idargs.data[0];
 // 		coreinfo->esig.sigS.cpu_flags = idargs.data[1];
 // 		coreinfo->esig.sigS.checksum  = idargs.data[2];
-		if ((r = ioctl( cpufd, CPUCTL_RDMSR, &msrargs)) < 0) {
+		if (ioctl( cpufd, CPUCTL_RDMSR, &msrargs) < 0) {
 			INFO( 0, "%s MSR read failed\n", cpudev);
-		} else
-			r = 0;
+			r = 1;
+		}
 	} 
 	if (!r) {
 		msrargs.msr = MSR_BIOS_SIGN;
-		if ((r = ioctl(cpufd, CPUCTL_RDMSR, &msrargs)) < 0) {
+		if (ioctl( cpufd, CPUCTL_RDMSR, &msrargs) < 0) {
 			INFO( 0, "%s signature read failed\n", cpudev);
+			r = 1;
 		}
 	}
 	if (!r) {
@@ -181,7 +188,7 @@ intel_getCoreInfo( struct intel_ProcessorInfo *coreinfo, int core)
 static int
 intel_getCoresInfo( struct intel_ProcessorInfo *coreinfos)
 {
-	int			core, r;
+	int			core, r = 0;
 	struct intel_ProcessorInfo 
 				*coreinfo;
 	
@@ -209,13 +216,14 @@ intel_probe( struct cpupdate_params *params)
 		.level  = 0,
 	};
 	const char *cpudev = "/dev/cpuctl0";
-	int cpufd, r;
+	int cpufd, r = 0;
   
-	if ((r = ((cpufd = open( cpudev, O_RDONLY)) < 0))) {
+	cpufd = open( cpudev, O_RDONLY);
+	if (cpufd < 0) {
 		INFO( 0, "error opening %s for reading\n", cpudev);
 		r = -1;
 	}
-	if (!r && ((r = ((ioctl( cpufd, CPUCTL_CPUID, &idargs) < 0))))) {
+	if (!r && ioctl( cpufd, CPUCTL_CPUID, &idargs) < 0) {
 		INFO( 0, "ioctl( CPUCTL_CPUID) failed\n");
 		r = -1;
 	}
@@ -225,20 +233,17 @@ intel_probe( struct cpupdate_params *params)
 		((uint32_t *)vendor)[2] = idargs.data[2];
 		vendor[12] = '\0';
 		r = (strncmp( vendor, INTEL_VENDOR_ID, sizeof( INTEL_VENDOR_ID))) ? 1 : 0;
-	} else
-		r = -1;
-	if (r)
-		return r;
-	
-	// if we reached here, we have an Intel CPU.
-	// First allocate coreinfo structures for each core.
-	// Then walk cores and collect their data.
-
-	if ((params->coreinfop = calloc( numCores, sizeof( struct intel_ProcessorInfo))) == NULL) {
-		INFO( 0, "Failed to allocate memory for coreinfos structures\n");
-		return 1;
+		// r is 0 now if Intel cpu
 	}
-	r = intel_getCoresInfo( params->coreinfop);
+	if (!r) {
+		if ((params->coreinfop = calloc( numCores, sizeof( struct intel_ProcessorInfo))) == NULL) {
+			INFO( 0, "Failed to allocate memory for coreinfos structures\n");
+			r = 1;
+		}
+	}
+	if (!r) {
+		r = intel_getCoresInfo( params->coreinfop);
+	}
 	return r;
 }
 
@@ -311,12 +316,13 @@ readucfile( void *ucodeinfop, char *upfilepath)
 {
 	struct intel_ucinfo 
 			   *ucinfo;
-	int			updfd = 0;
+	int			updfd = -1;
 	int			r = 0;
 	struct stat	st;
 
 	ucinfo = (struct intel_ucinfo *) ucodeinfop;
-	if ((updfd = open( upfilepath, O_RDONLY, 0)) < 0) {
+	updfd = open( upfilepath, O_RDONLY, 0);
+	if (updfd < 0) {
 		INFO( 12, "Failed to open %s file\n", upfilepath);
 		r = 1;
 	}
@@ -376,12 +382,11 @@ intel_getHdrInfo( struct intel_hdrhdr_t *hdr, const char *filename)
 		}
 	}
 	if (!r) {
-		hdr->payload_size = hdr->data_size + sizeof( struct intel_uc_header_t);
-	}
-	if (!r) {
 		uint32_t sum = 0;
 		uint32_t *p = (uint32_t *) image;
 		int n = hdr->total_size / sizeof( uint32_t);
+		hdr->payload_size = hdr->data_size + sizeof( struct intel_uc_header_t);
+		
 		for (int i = 0; i < n; i++, p++)
 			sum += *p;
 		/* checksum (sum) must be zero. image->checksum only serves to get it zero */
@@ -477,7 +482,7 @@ intel_loadcheckmicrocode( struct cpupdate_params *params)
 	char upfilename[ MAXPATHLEN];
 	struct intel_ProcessorInfo *info;
 	struct intel_ucinfo *ucinfo;
-	int r;
+	int r = 0;
 	int nodir = 1;				// bool: microcode directory given?
 	int gotfile = 0;			// bool: got microcode file?
 
@@ -548,8 +553,9 @@ intel_loadcheckmicrocode( struct cpupdate_params *params)
 		
 		/* get first header to get the file's basic information */  
 		ucinfo->hdrhdrs[ 0].image = ucinfo->image;
-		if (!r && (r = intel_getHdrInfo( &ucinfo->hdrhdrs[ 0], upfilepath))) {
+		if (!r && intel_getHdrInfo( &ucinfo->hdrhdrs[ 0], upfilepath)) {
 			INFO( 0, "File %s: Error in [first] header\n", upfilepath);
+			r = 1;
 		}
 		
 		if (!r && ucinfo->hdrhdrs[ 0].has_ext_table) {
@@ -561,7 +567,7 @@ intel_loadcheckmicrocode( struct cpupdate_params *params)
 		} 
 
 		ucinfo->blobcount = 1;
-		if (!r && ((ucinfo->hdrhdrs[ 0]).total_size != ucinfo->imagesize)) {
+		if (!r && ucinfo->hdrhdrs[ 0].total_size != ucinfo->imagesize) {
 			// check how many updates the file contains [usually each for different processor flags, up to 8]
 			// now we have to walk through all headers like a linked list
 			uint32_t tsiz = ucinfo->hdrhdrs[ 0].total_size;
@@ -740,7 +746,6 @@ intel_update( struct cpupdate_params *params)
 	struct intel_ucinfo *ucinfo = (struct intel_ucinfo *) params->ucodeinfop;
 	struct intel_ProcessorInfo *coreinfo;
 	char cpupath[ MAXPATHLEN];
-
 	int core = 0;
 	int r = 0;
 
@@ -822,8 +827,9 @@ intel_update( struct cpupdate_params *params)
 			} else if (!(hdr->cpu_flags & 0xff & coreinfo->flags)) {
 				INFO( 0, "Processor flags do not match, cannot apply update.\n");
 				r = -1;
-			} else if (( r = ((cpufd = open( cpupath, O_RDWR)) < 0) )) {
+			} else if ((cpufd = open( cpupath, O_RDWR)) < 0) {
 				INFO( 0, "Failed to open %s for writing\n", cpupath);
+				r = 1;
 			} else {
 				cpuctl_update_args_t args;
 	
