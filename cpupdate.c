@@ -83,7 +83,6 @@ usage( void)
 {
   fprintf(stderr, "Usage: %s [-qwvvuiCXIAVh] [-<f|U> <microcodefile>] [-<cpsST> <datadir>]\n", pgmn);
   fprintf(stderr, "  -i   show processor information\n");
-  fprintf(stderr, "  -f   show version information of microcode file\n");
   fprintf(stderr, "  -u   update microcode\n");
   fprintf(stderr, "  -U   update microcode using file <microcodefile>\n");
   fprintf(stderr, "  -w   write it: without this option cpupdate only simulates updating\n");
@@ -93,8 +92,10 @@ usage( void)
   fprintf(stderr, "  -s   use secondary repo path <datadir>\n");
   fprintf(stderr, "  -V   print version\n");
   fprintf(stderr, "  -h   show this help\n");
-  fprintf(stderr, "  -IAV for the options below: set vendor mode to Intel/AMD/VIA [atm only Intel implemented]\n");
-  fprintf(stderr, "  -c   Check integrity of microcode files in <datadir>. Vendor mode must be set!\n");
+  fprintf(stderr, "  -IAV for the options below: vendor mode must be set [atm only Intel (-I) implemented]\n");
+  fprintf(stderr, "  -f   show version information of microcode file\n");
+  fprintf(stderr, "  -c   Check integrity of microcode files in <datadir>\n");
+  fprintf(stderr, "  -d   As -c, in addition print microcode file statistics\n");
   fprintf(stderr, "  -C   convert/compact microcode files from legacy to multi-blob intel-ucode file format\n");
   fprintf(stderr, "  -X   convert (extract) microcode files from multi-blob intel-ucode to legacy file format\n");
   fprintf(stderr, "  -S   source dir for converting\n");
@@ -211,14 +212,15 @@ main( int argc, char *argv[])
 	
 	if (argc == 1)
 		usage();
-	while ((c = getopt( argc, argv, "U:c:f:uihIqvwp:s:S:T:CXV")) != -1) {
+	while ((c = getopt( argc, argv, "U:c:f:d:uihIqvwp:s:S:T:CXV")) != -1) {
 		switch (c) {
 			case 'U':
 			case 'c': 
-			case 'f': 	if (strlen( optarg) < MAXPATHLEN) {
+			case 'f':
+			case 'd': 	if (strlen( optarg) < MAXPATHLEN) {
 		  					if (c == 'f' || c == 'U') {
 								strcpy( (char *) &cpupbuf.filepath, optarg);
-							} else if (c == 'c') {
+							} else if (c == 'c' || c == 'd') {
 								data = optarg;
 							}
 						} else {
@@ -321,7 +323,8 @@ main( int argc, char *argv[])
 					r = handler->printcpustats( &cpupbuf);
 					break;
 		case 'c':
-		case 'f': 	if (vendormode < 0) {
+		case 'f':
+		case 'd': 	if (vendormode < 0) {
 						INFO( 0, "ERROR: vendor mode option missing\n");
 							r = 1;
 							break;
@@ -331,7 +334,7 @@ main( int argc, char *argv[])
 						handler->loadcheckmicrocode( &cpupbuf);
 						handler->printmicrocodestats( &cpupbuf);
 						break;
-					} else if (cmd == 'c') {
+					} else if (cmd == 'c' || cmd == 'd') {
 						DIR *dirp;
 						struct dirent *direntry;
 						char fpath[ MAXPATHLEN];
@@ -356,6 +359,9 @@ main( int argc, char *argv[])
 								if (strlen( data) < MAXPATHLEN) {
 									strcpy( (char *) &cpupbuf.filepath, fpath);
 									handler->loadcheckmicrocode( &cpupbuf);
+									if (cmd == 'd') {
+										handler->printmicrocodestats( &cpupbuf);
+									}
 									handler->freeucodeinfo( &cpupbuf);
 //									handler->verifyUpdF( fpath, direntry->d_name);
 								} else {
